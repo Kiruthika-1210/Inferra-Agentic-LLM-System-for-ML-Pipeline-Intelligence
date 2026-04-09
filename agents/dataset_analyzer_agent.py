@@ -36,11 +36,13 @@ Focus on:
 - feature types
 - missing values
 
-Each insight must be:
-- short (max 12 words)
-- one sentence
+Rules:
+- insights must be short (max 12 words)
+- each insight must be one sentence
+- risk_factors must be ML problems (overfitting, imbalance, etc.)
 - no explanations
 - no special characters
+- strictly valid JSON
 - no line breaks
 
 Return ONLY valid JSON in this format:
@@ -49,6 +51,10 @@ Return ONLY valid JSON in this format:
     "...",
     "...",
     "..."
+  ],
+  "risk_factors": [
+  "...", 
+  "..."
   ]
 }}
 

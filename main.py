@@ -7,7 +7,7 @@ from data.preprocess import preprocess_data
 from data.data_loader import load_data
 from profiling.data_profiler import profile_data
 from agents.dataset_analyzer_agent import analyze_dataset
-
+from agents.strategy_agent import generate_strategy
 
 def main():
     # ----------------------------
@@ -22,7 +22,7 @@ def main():
         "--stage",
         type=str,
         default="all",
-        choices=["profile", "analyze", "all"],
+        choices=["profile", "analyze", "strategy", "all"],
         help="Pipeline stage to execute"
     )
 
@@ -103,7 +103,73 @@ def main():
     if args.stage == "analyze":
         print("\nAnalysis stage completed.")
         return
+    
+    # ----------------------------
+    # STEP 5: Strategy + Iterative Loop
+    # ----------------------------
+    max_iterations = 3
+    target_accuracy = 0.85
+    min_improvement = 0.005  # 0.5%
 
+    prev_metrics = None
+    prev_test_acc = 0
+
+    for iteration in range(1, max_iterations + 1):
+
+        print(f"\n🚀 Iteration {iteration}")
+
+        # ----------------------------
+        # Strategy
+        # ----------------------------
+        strategy = generate_strategy(
+            insights=insights,
+            iteration=iteration,
+            prev_metrics=prev_metrics
+        )
+
+        print("\n📊 Strategy:")
+        print(json.dumps(strategy, indent=2))
+
+        # ----------------------------
+        # TEMP Execution (replace later)
+        # ----------------------------
+        current_metrics = {
+            "train_accuracy": 0.88 + iteration * 0.01,
+            "test_accuracy": 0.78 + iteration * 0.02,
+            "cv_std": 0.10
+        }
+
+        print("\n📈 Metrics:")
+        print(json.dumps(current_metrics, indent=2))
+
+        current_test_acc = current_metrics["test_accuracy"]
+
+        # ----------------------------
+        # STOPPING CONDITIONS
+        # ----------------------------
+
+        # 1. Desired accuracy reached
+        if current_test_acc >= target_accuracy:
+            print("\n🎯 Target accuracy reached. Stopping early.")
+            break
+
+        # 2. Improvement too small
+        improvement = current_test_acc - prev_test_acc
+
+        # ✅ ADD THIS LINE HERE
+        print(f"\n📉 Improvement: {improvement:.4f}")
+        
+        if iteration > 1 and improvement < min_improvement:
+            print("\n⚠️ Improvement too small. Stopping.")
+            break
+
+        # Update for next iteration
+        prev_metrics = current_metrics
+        prev_test_acc = current_test_acc
+
+
+    print("\n✅ Final Strategy:")
+    print(json.dumps(strategy, indent=2))
 
 if __name__ == "__main__":
     main()

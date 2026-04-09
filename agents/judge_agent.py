@@ -2,12 +2,15 @@ import json
 from utils.llm_interface import call_llm
 
 
+# ----------------------------
+# PROFILE VALIDATION
+# ----------------------------
 def rule_based_validation(stats: dict, llm_profile: dict) -> dict:
     """
     Deterministic validation of LLM output
     """
 
-    # --- Imbalance Correction ---
+    # --- Imbalance ---
     dist = stats.get("class_distribution", {})
     
     if len(dist) == 2:
@@ -15,27 +18,23 @@ def rule_based_validation(stats: dict, llm_profile: dict) -> dict:
         ratio = min(values) / max(values)
 
         if ratio < 0.5:
-            correct = "high"
+            llm_profile["imbalance"] = "high"
         elif ratio < 0.75:
-            correct = "moderate"
+            llm_profile["imbalance"] = "moderate"
         else:
-            correct = "low"
+            llm_profile["imbalance"] = "low"
 
-        llm_profile["imbalance"] = correct
-
-    # --- Missing Values ---
+    # --- Missing ---
     missing = stats.get("missing_percentage", 0)
 
-    if missing == 0:
-        llm_profile["missing_severity"] = "low"
-    elif missing < 5:
+    if missing < 5:
         llm_profile["missing_severity"] = "low"
     elif missing < 20:
         llm_profile["missing_severity"] = "moderate"
     else:
         llm_profile["missing_severity"] = "high"
 
-    # --- Feature Type ---
+    # --- Feature type ---
     if stats.get("categorical_features", 0) == 0:
         llm_profile["feature_complexity"] = "numerical"
     elif stats.get("numerical_features", 0) == 0:
@@ -48,7 +47,7 @@ def rule_based_validation(stats: dict, llm_profile: dict) -> dict:
 
 def llm_judge(stats: dict, llm_profile: dict) -> dict:
     """
-    Optional LLM-based validation (secondary judge)
+    Optional LLM-based validation
     """
 
     prompt = f"""
@@ -60,50 +59,85 @@ Given dataset statistics:
 And an LLM-generated profile:
 {json.dumps(llm_profile, indent=2)}
 
-Check if the profile is correct.
-If incorrect, fix it.
+Check correctness and fix if needed.
 
-Return ONLY valid JSON in same format.
+Return ONLY valid JSON.
 """
 
     judged = call_llm(prompt)
-
     return judged if judged else llm_profile
 
 
 def judge_profile(stats: dict, llm_profile: dict, use_llm_judge: bool = False) -> dict:
     """
-    Main judge pipeline
+    Profile validation pipeline
     """
 
-    # Step 1: Rule-based correction
     validated = rule_based_validation(stats, llm_profile)
 
-    # Step 2: Optional LLM judge
     if use_llm_judge:
         validated = llm_judge(stats, validated)
 
     return validated
 
-def clean_insights(insights: dict) -> dict:
+
+# ----------------------------
+# INSIGHT CLEANING
+# ----------------------------
+def clean_insights(data: dict) -> dict:
     """
-    Light validation for insights
+    Clean LLM-generated insights
     """
 
     cleaned = []
 
-    for item in insights.get("insights", []):
+    for item in data.get("insights", []):
         if not isinstance(item, str):
             continue
 
-        # Remove weird characters
         item = item.replace("[K", "").strip()
-
-        # Limit length
         item = item[:80]
 
-        # Ensure not empty
         if item:
             cleaned.append(item)
 
     return {"insights": cleaned}
+
+
+# ----------------------------
+# STRATEGY VALIDATION (SINGLE PIPELINE)
+# ----------------------------
+def validate_strategy(strategy: dict) -> dict:
+    """
+    Validate single pipeline strategy
+    """
+
+    valid_models = [
+        "LogisticRegression",
+        "RandomForest",
+        "GradientBoosting",
+        "SVC"
+    ]
+
+    # --- Model ---
+    if strategy.get("model") not in valid_models:
+        strategy["model"] = "RandomForest"
+
+    # --- Reason ---
+    if not strategy.get("reason"):
+        strategy["reason"] = "default model selection"
+
+    # --- Preprocessing ---
+    if not isinstance(strategy.get("preprocessing"), list):
+        strategy["preprocessing"] = []
+
+    # --- Hyperparameters ---
+    if not isinstance(strategy.get("hyperparameters"), dict):
+        strategy["hyperparameters"] = {}
+
+    # --- Defaults ---
+    if strategy["model"] == "RandomForest":
+        strategy["hyperparameters"].setdefault("n_estimators", 100)
+        strategy["hyperparameters"].setdefault("class_weight", "balanced")
+
+    return strategy

@@ -10,18 +10,17 @@ def clean_llm_output(output: str) -> str:
     Extract and sanitize JSON from LLM output
     """
 
-    # Extract JSON block
+    if "{" not in output or "}" not in output:
+        return ""
+
     start = output.find("{")
     end = output.rfind("}") + 1
     json_str = output[start:end]
 
-    # Remove control characters (newlines, tabs inside strings)
-    json_str = re.sub(r'[\x00-\x1F]+', ' ', json_str)
-
-    # Remove ANSI escape sequences
+    # Remove ANSI escape sequences FIRST
     json_str = re.sub(r'\x1B\[[0-?]*[ -/]*[@-~]', '', json_str)
 
-    # Remove control chars
+    # Then remove control characters
     json_str = re.sub(r'[\x00-\x1F]+', ' ', json_str)
 
     return json_str
@@ -52,8 +51,7 @@ def call_llm(prompt: str, retries: int = 2, delay: int = 1) -> dict:
             try:
                 return json.loads(cleaned)
             except Exception as e:
-                print("\nJSON parsing failed, returning fallback")
-                return {}
+                print(f"\n[PARSE ERROR] Attempt {attempt+1}: {e}")
 
         except Exception as e:
             print(f"[LLM ERROR] Attempt {attempt+1}: {e}")
