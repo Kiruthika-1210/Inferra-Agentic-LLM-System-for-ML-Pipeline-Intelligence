@@ -8,34 +8,32 @@ from data.data_loader import load_data
 from profiling.data_profiler import profile_data
 from agents.dataset_analyzer_agent import analyze_dataset
 from agents.strategy_agent import generate_strategy
+from agents.pipeline_generation_agent import generate_pipeline
+from core.execution_engine import run_pipeline
+from core.metrics import compute_metrics
+from agents.evaluation_agent import evaluate_results
+from agents.failure_analysis_agent import analyze_failure
+
 
 def main():
-    # ----------------------------
-    # Argument Parser
-    # ----------------------------
-    parser = argparse.ArgumentParser(description="Auto ML Pipeline System")
 
-    parser.add_argument("--file", type=str, required=True, help="Path or URL to input dataset")
-    parser.add_argument("--target", type=str, required=True, help="Target column name")
+    parser = argparse.ArgumentParser(description="Agentic AutoML System")
 
-    parser.add_argument(
-        "--stage",
-        type=str,
-        default="all",
-        choices=["profile", "analyze", "strategy", "all"],
-        help="Pipeline stage to execute"
-    )
+    parser.add_argument("--file", type=str, required=True)
+    parser.add_argument("--target", type=str, required=True)
 
     args = parser.parse_args()
 
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-    # ✅ Fix path issue
-    input_file = os.path.join(BASE_DIR, args.file)
-    target_column = args.target
+    # 🔥 FIX: handle URL vs local file
+    if args.file.startswith("http"):
+        input_file = args.file
+    else:
+        input_file = os.path.join(BASE_DIR, args.file)
 
     # ----------------------------
-    # Extract dataset name
+    # Dataset name
     # ----------------------------
     if input_file.startswith("http"):
         parsed_url = urlparse(input_file)
@@ -43,28 +41,25 @@ def main():
     else:
         dataset_name = os.path.splitext(os.path.basename(input_file))[0]
 
-    if dataset_name == "":
+    if not dataset_name:
         dataset_name = "dataset"
 
     # ----------------------------
-    # Output path
+    # Preprocess
     # ----------------------------
     processed_dir = os.path.join(BASE_DIR, "data", "processed")
     os.makedirs(processed_dir, exist_ok=True)
 
     cleaned_file = os.path.join(processed_dir, f"{dataset_name}_cleaned.csv")
 
-    # ----------------------------
-    # STEP 1: Preprocessing
-    # ----------------------------
     target_column = preprocess_data(
         input_path=input_file,
         output_path=cleaned_file,
-        target_column=target_column
+        target_column=args.target
     )
 
     # ----------------------------
-    # STEP 2: Load + Split
+    # Load Data
     # ----------------------------
     X_train, X_test, y_train, y_test = load_data(
         file_path=cleaned_file,
@@ -74,102 +69,141 @@ def main():
     print("\n📊 Dataset Shapes:")
     print("X_train:", X_train.shape)
     print("X_test :", X_test.shape)
-    print("y_train:", y_train.shape)
-    print("y_test :", y_test.shape)
 
     # ----------------------------
-    # STEP 3: Profiling
+    # Profiling + Analysis
     # ----------------------------
     profile = profile_data(X_train, y_train)
-
-    if not profile.get("llm_profile"):
-        print("\nLLM profiling failed, using fallback.")
-
-    if args.stage == "profile":
-        print("\nProfiling stage completed.")
-        return
-
-    # ----------------------------
-    # STEP 4: Analysis
-    # ----------------------------
     insights = analyze_dataset(profile)
 
-    if not insights:
-        print("\nInsights generation failed")
-
-    print("\n📊 Final Insights:")
+    print("\n📊 Insights:")
     print(json.dumps(insights, indent=2))
 
-    if args.stage == "analyze":
-        print("\nAnalysis stage completed.")
-        return
-    
     # ----------------------------
-    # STEP 5: Strategy + Iterative Loop
+    # ITERATIVE LOOP
     # ----------------------------
     max_iterations = 3
-    target_accuracy = 0.85
-    min_improvement = 0.005  # 0.5%
-
     prev_metrics = None
-    prev_test_acc = 0
+    failure_reason = None
+    refinement = None
+    target_accuracy = 0.85
+    improvement_threshold = 0.005  # 0.5%
+    best_strategy = None
+    best_accuracy = float("-inf")
 
     for iteration in range(1, max_iterations + 1):
 
         print(f"\n🚀 Iteration {iteration}")
 
         # ----------------------------
-        # Strategy
+        # Strategy Agent
         # ----------------------------
         strategy = generate_strategy(
             insights=insights,
             iteration=iteration,
-            prev_metrics=prev_metrics
+            prev_metrics=prev_metrics,
+            failure_reason=failure_reason,
+            refinement=refinement
         )
 
-        print("\n📊 Strategy:")
-        print(json.dumps(strategy, indent=2))
+        # ----------------------------
+        # 🔜 Pipeline Generation (next step)
+        # ----------------------------
+        pipeline = generate_pipeline(strategy, X_train, y_train)
+
+        execution_output = run_pipeline(
+            pipeline,
+            X_train,
+            X_test,
+            y_train,
+            y_test
+        )
+
+        if not execution_output["success"]:
+            print("\n❌ Execution failed:", execution_output["error"])
+
+            failure_reason = "Execution failure"
+            refinement = "Simplify model or fix parameters"
+            continue
 
         # ----------------------------
-        # TEMP Execution (replace later)
+        # Metrics
         # ----------------------------
-        current_metrics = {
-            "train_accuracy": 0.88 + iteration * 0.01,
-            "test_accuracy": 0.78 + iteration * 0.02,
-            "cv_std": 0.10
-        }
+        metrics = compute_metrics(
+            y_train,
+            y_test,
+            execution_output["train_pred"],
+            execution_output["test_pred"],
+            execution_output["runtime"],
+            execution_output["peak_memory"],   # 🔥 NEW
+            execution_output["pipeline"]
+        )
 
         print("\n📈 Metrics:")
-        print(json.dumps(current_metrics, indent=2))
-
-        current_test_acc = current_metrics["test_accuracy"]
+        print(json.dumps(metrics, indent=2))
 
         # ----------------------------
-        # STOPPING CONDITIONS
+        # Stopping Criteria
         # ----------------------------
+        current_accuracy = metrics.get("test_accuracy", 0)
 
-        # 1. Desired accuracy reached
-        if current_test_acc >= target_accuracy:
+        # Update best accuracy
+        if current_accuracy > best_accuracy:
+            best_accuracy = current_accuracy
+            best_strategy = strategy
+
+        # 1️⃣ Desired accuracy reached
+        if current_accuracy >= target_accuracy:
             print("\n🎯 Target accuracy reached. Stopping early.")
             break
 
-        # 2. Improvement too small
-        improvement = current_test_acc - prev_test_acc
+        # 2️⃣ Improvement check
+        if prev_metrics:
+            prev_acc = prev_metrics.get("test_accuracy", 0)
+            improvement = current_accuracy - prev_acc
 
-        # ✅ ADD THIS LINE HERE
-        print(f"\n📉 Improvement: {improvement:.4f}")
-        
-        if iteration > 1 and improvement < min_improvement:
-            print("\n⚠️ Improvement too small. Stopping.")
-            break
+            if improvement < improvement_threshold:
+                print("\n📉 Improvement too small. Stopping early.")
+                break
 
-        # Update for next iteration
-        prev_metrics = current_metrics
-        prev_test_acc = current_test_acc
+        # ----------------------------
+        # Evaluation
+        # ----------------------------
+        evaluation = evaluate_results(metrics, execution_success=True)
 
+        print("\n🧠 Evaluation:")
+        print(json.dumps(evaluation, indent=2))
 
-    print("\n✅ Final Strategy:")
-    print(json.dumps(strategy, indent=2))
+        # ----------------------------
+        # Failure Analysis
+        # ----------------------------
+        failure = analyze_failure(
+            profile,
+            insights,
+            strategy,
+            metrics,
+            evaluation
+        )
+
+        print("\n🧠 Failure Analysis:")
+        print(json.dumps(failure, indent=2))
+
+        # ----------------------------
+        # Update failure signal
+        # ----------------------------
+        if evaluation["status"] == "fail":
+            failure_reason = evaluation["issue"]
+            refinement = failure.get("suggestion")
+        else:
+            failure_reason = None
+            refinement = None
+
+        prev_metrics = metrics
+
+    print("\n🏆 FINAL BEST STRATEGY:")
+    print(json.dumps(best_strategy, indent=2))
+
+    print(f"\n🏆 FINAL BEST ACCURACY: {best_accuracy}")
 
 if __name__ == "__main__":
     main()

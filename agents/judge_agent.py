@@ -86,23 +86,28 @@ def judge_profile(stats: dict, llm_profile: dict, use_llm_judge: bool = False) -
 # ----------------------------
 def clean_insights(data: dict) -> dict:
     """
-    Clean LLM-generated insights
+    Clean LLM-generated insights + preserve risk_factors
     """
 
-    cleaned = []
+    cleaned_insights = []
+    cleaned_risks = []
 
     for item in data.get("insights", []):
-        if not isinstance(item, str):
-            continue
+        if isinstance(item, str):
+            item = item.replace("[K", "").strip()[:80]
+            if item:
+                cleaned_insights.append(item)
 
-        item = item.replace("[K", "").strip()
-        item = item[:80]
+    for item in data.get("risk_factors", []):
+        if isinstance(item, str):
+            item = item.strip()[:80]
+            if item:
+                cleaned_risks.append(item)
 
-        if item:
-            cleaned.append(item)
-
-    return {"insights": cleaned}
-
+    return {
+        "insights": cleaned_insights,
+        "risk_factors": cleaned_risks
+    }
 
 # ----------------------------
 # STRATEGY VALIDATION (SINGLE PIPELINE)
@@ -141,3 +146,30 @@ def validate_strategy(strategy: dict) -> dict:
         strategy["hyperparameters"].setdefault("class_weight", "balanced")
 
     return strategy
+
+def clean_failure_analysis(response):
+    """
+    Basic validation for failure analysis output
+    """
+
+    if not isinstance(response, dict):
+        return fallback()
+
+    # Ensure keys exist
+    response.setdefault("issue", "unknown")
+    response.setdefault("reason", "no reason provided")
+    response.setdefault("suggestion", "try simpler model")
+
+    # Prevent useless suggestions
+    if len(response["suggestion"]) < 5:
+        response["suggestion"] = "Adjust model complexity or preprocessing"
+
+    return response
+
+
+def fallback():
+    return {
+        "issue": "unknown",
+        "reason": "fallback",
+        "suggestion": "Reduce complexity or change model"
+    }
