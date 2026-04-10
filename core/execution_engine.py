@@ -32,7 +32,7 @@ def run_pipeline(pipeline, X_train, X_test, y_train, y_test):
             "train_pred": train_pred,
             "test_pred": test_pred,
             "runtime": round(runtime, 4),
-            "peak_memory": peak,   # 🔥 IMPORTANT
+            "peak_memory": peak,   
             "pipeline": pipeline
         }
 

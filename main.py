@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+import pandas as pd
 from urllib.parse import urlparse
 
 from data.preprocess import preprocess_data
@@ -13,7 +14,7 @@ from core.execution_engine import run_pipeline
 from core.metrics import compute_metrics
 from agents.evaluation_agent import evaluate_results
 from agents.failure_analysis_agent import analyze_failure
-
+from experiments.logger import save_log
 
 def main():
 
@@ -91,8 +92,9 @@ def main():
     best_strategy = None
     best_accuracy = float("-inf")
 
-    for iteration in range(1, max_iterations + 1):
+    iterations_log = []
 
+    for iteration in range(1, max_iterations + 1):
         print(f"\n🚀 Iteration {iteration}")
 
         # ----------------------------
@@ -135,36 +137,12 @@ def main():
             execution_output["train_pred"],
             execution_output["test_pred"],
             execution_output["runtime"],
-            execution_output["peak_memory"],   # 🔥 NEW
+            execution_output["peak_memory"],   
             execution_output["pipeline"]
         )
 
         print("\n📈 Metrics:")
         print(json.dumps(metrics, indent=2))
-
-        # ----------------------------
-        # Stopping Criteria
-        # ----------------------------
-        current_accuracy = metrics.get("test_accuracy", 0)
-
-        # Update best accuracy
-        if current_accuracy > best_accuracy:
-            best_accuracy = current_accuracy
-            best_strategy = strategy
-
-        # 1️⃣ Desired accuracy reached
-        if current_accuracy >= target_accuracy:
-            print("\n🎯 Target accuracy reached. Stopping early.")
-            break
-
-        # 2️⃣ Improvement check
-        if prev_metrics:
-            prev_acc = prev_metrics.get("test_accuracy", 0)
-            improvement = current_accuracy - prev_acc
-
-            if improvement < improvement_threshold:
-                print("\n📉 Improvement too small. Stopping early.")
-                break
 
         # ----------------------------
         # Evaluation
@@ -198,12 +176,83 @@ def main():
             failure_reason = None
             refinement = None
 
+        iterations_log.append({
+            "iteration": iteration,
+            "strategy": strategy,
+            "metrics": metrics,
+            "evaluation": evaluation,
+            "failure_reason": failure_reason,
+            "refinement": refinement
+        })
+
+        # ----------------------------
+        # Stopping Criteria
+        # ----------------------------
+        current_accuracy = metrics.get("test_accuracy", 0)
+
+        # Update best accuracy
+        if current_accuracy > best_accuracy:
+            best_accuracy = current_accuracy
+            best_strategy = strategy
+
+        # 1️⃣ Desired accuracy reached
+        if current_accuracy >= target_accuracy:
+            print("\n🎯 Target accuracy reached. Stopping early.")
+            break
+
+        # 2️⃣ Improvement check
+        if prev_metrics:
+            prev_acc = prev_metrics.get("test_accuracy", 0)
+            improvement = current_accuracy - prev_acc
+
+            if improvement < improvement_threshold:
+                print("\n📉 Improvement too small. Stopping early.")
+                break
+        
         prev_metrics = metrics
+
 
     print("\n🏆 FINAL BEST STRATEGY:")
     print(json.dumps(best_strategy, indent=2))
 
     print(f"\n🏆 FINAL BEST ACCURACY: {best_accuracy}")
 
+    save_log(
+        dataset_name=dataset_name,  
+        profile=profile,
+        insights=insights,
+        iterations=iterations_log,
+        final_result={
+            "best_strategy": best_strategy,
+            "best_accuracy": best_accuracy
+        }
+    )
+
+    # ----------------------------
+    # SAVE AGENTIC RESULTS (FIXED)
+    # ----------------------------
+    results_dir = os.path.join(BASE_DIR, "experiments", "results", dataset_name)
+    os.makedirs(results_dir, exist_ok=True)
+
+    agentic_path = os.path.join(results_dir, "agentic.csv")
+
+    result_row = {
+        "dataset": dataset_name,
+        "model": best_strategy.get("model"),
+        "train_accuracy": metrics.get("train_accuracy"),
+        "test_accuracy": best_accuracy,
+        "precision": metrics.get("precision"),
+        "recall": metrics.get("recall"),
+        "f1_score": metrics.get("f1_score"),
+        "runtime": metrics.get("runtime"),
+        "peak_memory_kb": metrics.get("peak_memory_kb"),
+        "pipeline_complexity": str(metrics.get("pipeline_complexity"))
+    }
+
+    df = pd.DataFrame([result_row])
+    df.to_csv(agentic_path, index=False)
+
 if __name__ == "__main__":
     main()
+
+    
