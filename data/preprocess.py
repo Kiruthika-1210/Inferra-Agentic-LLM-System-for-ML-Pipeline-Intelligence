@@ -13,9 +13,9 @@ def preprocess_data(input_path, output_path, target_column):
 
     # Load dataset
     if input_path.startswith("http://") or input_path.startswith("https://"):
-        print("[Preprocess] Loading from URL...")
+        print("\nLoading from URL...")
     else:
-        print("[Preprocess] Loading from local file...")
+        print("\nLoading from local file...")
 
     try:
         df = pd.read_csv(input_path, encoding='utf-8', low_memory=False)
@@ -31,7 +31,7 @@ def preprocess_data(input_path, output_path, target_column):
         .str.replace(r"[^\w]", "", regex=True)
     )
 
-    print("Original Shape:", df.shape)
+    print("\nOriginal Shape :", df.shape)
     
     # Remove completely empty rows
     df.dropna(how="all", inplace=True)
@@ -59,6 +59,6 @@ def preprocess_data(input_path, output_path, target_column):
     # Save cleaned dataset
     df.to_csv(output_path, index=False)
 
-    print(f"Preprocessing complete → {output_path}")
+    print(f"\nPreprocessing completed  →  Cleaned dataset stored in:  {output_path}")
 
     return target_column   

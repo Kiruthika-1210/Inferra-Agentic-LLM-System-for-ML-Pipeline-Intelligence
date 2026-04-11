@@ -73,11 +73,11 @@ def save_json(data, path):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
 
-def profile_data(X: pd.DataFrame, y: pd.Series) -> dict:
+def profile_data(X: pd.DataFrame, y: pd.Series, dataset_name) -> dict:
 
-    cached = load_json("results/profile.json")
+    cached = load_json(f"results/profile/{dataset_name}_profile.json")
     if cached:
-        print("\n⚡ Using cached profile...")
+        print("\nUsing cached profile...")
         return cached
 
     stats = compute_basic_stats(X, y)
@@ -91,9 +91,40 @@ def profile_data(X: pd.DataFrame, y: pd.Series) -> dict:
         "llm_profile": llm_output
     }
 
-    print("\nFinal Data Profile:")
-    print(json.dumps(final_profile, indent=2))
-
-    save_json(final_profile, "results/profile.json")
+    save_json(final_profile, f"results/profile/{dataset_name}_profile.json")
 
     return final_profile
+
+def print_data_profile(profile):
+    raw = profile.get("raw_stats", {})
+    llm = profile.get("llm_profile", {})
+
+    print("\nData Summary")
+    print("━" * 30)
+
+    # ----------------------------
+    # Raw Stats
+    # ----------------------------
+    print("\nRaw Statistics")
+    print(f"• Samples            : {raw.get('samples')}")
+    print(f"• Features           : {raw.get('features')}")
+    print(f"• Missing (%)        : {raw.get('missing_percentage')}")
+    print(f"• Numerical Features : {raw.get('numerical_features')}")
+    print(f"• Categorical        : {raw.get('categorical_features')}")
+
+    # ----------------------------
+    # Class Distribution
+    # ----------------------------
+    if raw.get("class_distribution"):
+        print("\nClass Distribution")
+        for cls, val in raw["class_distribution"].items():
+            print(f"• {str(cls):<12} : {val * 100:.2f}%")
+
+    # ----------------------------
+    # LLM Profile
+    # ----------------------------
+    print("\nLLM Profile")
+    print(f"• Dataset Size       : {llm.get('dataset_size', '').capitalize()}")
+    print(f"• Imbalance          : {llm.get('imbalance', '').capitalize()}")
+    print(f"• Missing Severity   : {llm.get('missing_severity', '').capitalize()}")
+    print(f"• Feature Complexity : {llm.get('feature_complexity', '').capitalize()}")

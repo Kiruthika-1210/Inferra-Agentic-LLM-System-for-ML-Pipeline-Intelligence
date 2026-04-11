@@ -96,9 +96,9 @@ def run_all(file_path, target):
 
     summary.to_csv(summary_path, index=False)
 
-    print(f"\n✅ Experiment Completed for {dataset_name}")
-    print(f"📁 Results saved in: {dataset_dir}")
-
+    print(f"\nExperiment Completed for {dataset_name}")
+    print(f"Results saved in: {dataset_dir}")
+    print("━"*50)
 
 if __name__ == "__main__":
     import argparse

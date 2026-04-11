@@ -21,13 +21,13 @@
   },
   "dataset_insights": {
     "insights": [
-      "Small dataset, may require more data for robust models.",
-      "Moderate imbalance risk: skew in class distribution could bias predict predictio",
-      "Numerical features only simplifies preprocessing and modeling."
+      "Small dataset size might limit model generalization.",
+      "Moderate class imbalance can bias predictive performance towards major majority ",
+      "Low missing values simplify preprocessing but not without impacting mi minority "
     ],
     "risk_factors": [
-      "Potential overfitting due to small dataset size limit generalizability generaliz",
-      "Class imbalance might cause misleading accuracy metrics"
+      "Potential for overfitting due to small dataset size and moderate imbal imbalance",
+      "Underrepresented class risk of being ignored in model learning"
     ]
   },
   "iterations": [
@@ -35,60 +35,26 @@
       "iteration": 1,
       "strategy": {
         "model": "GradientBoosting",
-        "reason": "Balances tree and sequential learning, handles numerical featu features well.",
-        "preprocessing": [
-          "SMOTE"
-        ],
-        "hyperparameters": {
-          "n_estimators": 100,
-          "learning_rate": 0.1
-        },
-        "confidence": 0.75
-      },
-      "metrics": {
-        "train_accuracy": 0.9169,
-        "test_accuracy": 0.7468,
-        "precision": 0.6271,
-        "recall": 0.6852,
-        "f1_score": 0.6549,
-        "runtime": 1.0156,
-        "peak_memory_kb": 334.72,
-        "pipeline_complexity": {
-          "num_steps": 3,
-          "num_hyperparameters": 20
-        }
-      },
-      "evaluation": {
-        "status": "fail",
-        "issue": "overfitting",
-        "reason": "High train-test gap (0.17)"
-      },
-      "failure_reason": "overfitting",
-      "refinement": "Adjust model complexity or preprocessing"
-    },
-    {
-      "iteration": 2,
-      "strategy": {
-        "model": "GradientBoosting",
-        "reason": "Averaged high precision and recall with GradBoost, minor incre increase in accuracy.",
+        "reason": "Gain from imbalance handling and less overfitting risk.",
         "preprocessing": [
           "SMOTE"
         ],
         "hyperparameters": {
           "n_estimators": 100,
           "learning_rate": 0.1,
-          "max_depth": 4
+          "max_depth": 4,
+          "min_samples_split": 20
         },
         "confidence": 0.95
       },
       "metrics": {
-        "train_accuracy": 0.9707,
-        "test_accuracy": 0.7922,
-        "precision": 0.6774,
-        "recall": 0.7778,
-        "f1_score": 0.7241,
-        "runtime": 0.9521,
-        "peak_memory_kb": 280.54,
+        "train_accuracy": 0.9723,
+        "test_accuracy": 0.7403,
+        "precision": 0.625,
+        "recall": 0.6481,
+        "f1_score": 0.6364,
+        "runtime": 1.1543,
+        "peak_memory_kb": 333.37,
         "pipeline_complexity": {
           "num_steps": 3,
           "num_hyperparameters": 20
@@ -97,7 +63,39 @@
       "evaluation": {
         "status": "fail",
         "issue": "overfitting",
-        "reason": "High train-test gap (0.18)"
+        "reason": "High train-test gap (0.23)"
+      },
+      "failure_reason": "overfitting",
+      "refinement": "Reduce complexity or change model"
+    },
+    {
+      "iteration": 2,
+      "strategy": {
+        "model": "RandomForest",
+        "reason": "Fallback safe model",
+        "preprocessing": [],
+        "hyperparameters": {
+          "n_estimators": 100
+        },
+        "confidence": 0.5
+      },
+      "metrics": {
+        "train_accuracy": 1.0,
+        "test_accuracy": 0.7597,
+        "precision": 0.6735,
+        "recall": 0.6111,
+        "f1_score": 0.6408,
+        "runtime": 1.6062,
+        "peak_memory_kb": 341.55,
+        "pipeline_complexity": {
+          "num_steps": 2,
+          "num_hyperparameters": 19
+        }
+      },
+      "evaluation": {
+        "status": "fail",
+        "issue": "overfitting",
+        "reason": "High train-test gap (0.24)"
       },
       "failure_reason": "overfitting",
       "refinement": "Adjust model complexity or preprocessing"
@@ -106,26 +104,25 @@
       "iteration": 3,
       "strategy": {
         "model": "GradientBoosting",
-        "reason": "Balancing dataset mitigates overfitting risk while maintaining maintaining robustness.",
+        "reason": "Moderate class imbalance and small dataset size, Gradient Boos Boost may generalize better with hyperparameter tuning.",
         "preprocessing": [
           "SMOTE"
         ],
         "hyperparameters": {
           "n_estimators": 100,
-          "learning_rate": 0.1,
           "max_depth": 4,
-          "min_samples_split": 2
+          "learning_rate": 0.1
         },
         "confidence": 0.85
       },
       "metrics": {
-        "train_accuracy": 0.9739,
-        "test_accuracy": 0.7662,
-        "precision": 0.6552,
-        "recall": 0.7037,
-        "f1_score": 0.6786,
-        "runtime": 0.7768,
-        "peak_memory_kb": 263.97,
+        "train_accuracy": 0.9723,
+        "test_accuracy": 0.7468,
+        "precision": 0.6271,
+        "recall": 0.6852,
+        "f1_score": 0.6549,
+        "runtime": 0.8838,
+        "peak_memory_kb": 279.06,
         "pipeline_complexity": {
           "num_steps": 3,
           "num_hyperparameters": 20
@@ -134,26 +131,37 @@
       "evaluation": {
         "status": "fail",
         "issue": "overfitting",
-        "reason": "High train-test gap (0.21)"
+        "reason": "High train-test gap (0.23)"
       },
       "failure_reason": "overfitting",
-      "refinement": "Adjust model complexity or preprocessing"
+      "refinement": "Reduce complexity or change model"
     }
   ],
   "final_result": {
     "best_strategy": {
-      "model": "GradientBoosting",
-      "reason": "Averaged high precision and recall with GradBoost, minor incre increase in accuracy.",
-      "preprocessing": [
-        "SMOTE"
-      ],
+      "model": "RandomForest",
+      "reason": "Fallback safe model",
+      "preprocessing": [],
       "hyperparameters": {
-        "n_estimators": 100,
-        "learning_rate": 0.1,
-        "max_depth": 4
+        "n_estimators": 100
       },
-      "confidence": 0.95
+      "confidence": 0.5
     },
-    "best_accuracy": 0.7922
+    "best_metrics": {
+      "train_accuracy": 1.0,
+      "test_accuracy": 0.7597,
+      "precision": 0.6735,
+      "recall": 0.6111,
+      "f1_score": 0.6408,
+      "runtime": 1.6062,
+      "peak_memory_kb": 341.55,
+      "pipeline_complexity": {
+        "num_steps": 2,
+        "num_hyperparameters": 19
+      }
+    },
+    "best_accuracy": 0.7597,
+    "total_iterations": 3,
+    "stopping_reason": "low_improvement"
   }
 }

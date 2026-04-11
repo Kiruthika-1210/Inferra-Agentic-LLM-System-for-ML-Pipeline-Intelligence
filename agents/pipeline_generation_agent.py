@@ -73,7 +73,7 @@ def get_model(model_name, params):
     """
 
     if model_name == "LogisticRegression":
-        return LogisticRegression(**params)
+        return LogisticRegression(max_iter=1000, **params)
 
     elif model_name == "RandomForest":
         return RandomForestClassifier(**params)

@@ -129,7 +129,7 @@ def generate_strategy(insights, iteration,
         refinement=refinement
     )
 
-    print(f"\n🧠 Generating strategy (Iteration {iteration})...")
+    print(f"\nGenerating strategy (Iteration {iteration})...")
 
     response = call_llm(prompt)
 
@@ -138,7 +138,7 @@ def generate_strategy(insights, iteration,
         try:
             response = json.loads(response)
         except:
-            print("\n⚠️ Failed to parse LLM response, using fallback")
+            print("\nFailed to parse LLM response, using fallback")
             response = {}
 
     # 🔧 FIX 2: Fallback if empty
@@ -176,8 +176,5 @@ def generate_strategy(insights, iteration,
         response["confidence"] = float(response.get("confidence", 0.7))
     except:
         response["confidence"] = 0.7
-
-    print("\n📊 Strategy:")
-    print(json.dumps(response, indent=2))
 
     return response

@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 from data.preprocess import preprocess_data
 from data.data_loader import load_data
-from profiling.data_profiler import profile_data
+from profiling.data_profiler import profile_data, print_data_profile
 from agents.dataset_analyzer_agent import analyze_dataset
 from agents.strategy_agent import generate_strategy
 from agents.pipeline_generation_agent import generate_pipeline
@@ -15,6 +15,39 @@ from core.metrics import compute_metrics
 from agents.evaluation_agent import evaluate_results
 from agents.failure_analysis_agent import analyze_failure
 from experiments.logger import save_log
+
+
+def print_iteration(strategy, metrics):
+    print("\nStrategy")
+    print(f"• Model          : {strategy.get('model')}")
+    print(f"• Reason         : {strategy.get('reason', 'N/A')}")
+    print(f"• Preprocessing  : {', '.join(strategy.get('preprocessing', [])) or 'None'}")
+    print(f"• Confidence     : {strategy.get('confidence', 'N/A')}")
+
+    if strategy.get("hyperparameters"):
+        print("\nHyperparameters")
+        for k, v in strategy["hyperparameters"].items():
+            print(f"• {k:<18}: {v}")
+
+    print("\nPerformance")
+    print(f"• Train Accuracy : {metrics.get('train_accuracy', 0):.4f}")
+    print(f"• Test Accuracy  : {metrics.get('test_accuracy', 0):.4f}")
+    print(f"• Precision      : {metrics.get('precision', 0):.4f}")
+    print(f"• Recall         : {metrics.get('recall', 0):.4f}")
+    print(f"• F1 Score       : {metrics.get('f1_score', 0):.4f}")
+
+    print("\nEfficiency")
+    print(f"• Runtime        : {metrics.get('runtime', 0):.2f} sec")
+    print(f"• Memory         : {metrics.get('peak_memory_kb', 0):.2f} KB")
+
+    if metrics.get("pipeline_complexity"):
+        comp = metrics["pipeline_complexity"]
+        print("\nPipeline Complexity")
+        print(f"• Steps          : {comp.get('num_steps')}")
+        print(f"• Hyperparameters: {comp.get('num_hyperparameters')}")
+
+def clean_text(text):
+    return " ".join(str(text).split())
 
 def main():
 
@@ -67,18 +100,30 @@ def main():
         target_column=target_column
     )
 
-    print("\n📊 Dataset Shapes:")
+    print("\n" + "━"*50)
+    print(f"DATASET: {dataset_name.upper()}")
+    print("━"*50)
+
+    print("\nDataset Shapes:")
     print("X_train:", X_train.shape)
     print("X_test :", X_test.shape)
 
     # ----------------------------
     # Profiling + Analysis
     # ----------------------------
-    profile = profile_data(X_train, y_train)
-    insights = analyze_dataset(profile)
+    profile = profile_data(X_train, y_train, dataset_name)
+    print_data_profile(profile)
 
-    print("\n📊 Insights:")
-    print(json.dumps(insights, indent=2))
+    insights = analyze_dataset(profile, dataset_name)
+
+    print("\nKey Insights:")
+    for insight in insights.get("insights", []):
+        print(f"• {clean_text(insight)}")
+
+    if insights.get("risk_factors"):
+        print("\nRisk Factors")
+        for risk in insights.get("risk_factors", []):
+            print(f"• {clean_text(risk)}")
 
     # ----------------------------
     # ITERATIVE LOOP
@@ -91,11 +136,14 @@ def main():
     improvement_threshold = 0.005  # 0.5%
     best_strategy = None
     best_accuracy = float("-inf")
+    best_metrics = None
 
     iterations_log = []
 
     for iteration in range(1, max_iterations + 1):
-        print(f"\n🚀 Iteration {iteration}")
+        print("\n" + "━"*50)
+        print(f"ITERATION {iteration}")
+        print("━"*50)
 
         # ----------------------------
         # Strategy Agent
@@ -122,7 +170,7 @@ def main():
         )
 
         if not execution_output["success"]:
-            print("\n❌ Execution failed:", execution_output["error"])
+            print("\nExecution failed:", execution_output["error"])
 
             failure_reason = "Execution failure"
             refinement = "Simplify model or fix parameters"
@@ -141,16 +189,18 @@ def main():
             execution_output["pipeline"]
         )
 
-        print("\n📈 Metrics:")
-        print(json.dumps(metrics, indent=2))
+        print_iteration(strategy, metrics)
 
         # ----------------------------
         # Evaluation
         # ----------------------------
         evaluation = evaluate_results(metrics, execution_success=True)
 
-        print("\n🧠 Evaluation:")
-        print(json.dumps(evaluation, indent=2))
+        status = "Good Fit" if evaluation["status"] == "success" else f"{evaluation['issue'].capitalize()}"
+
+        print("\nEvaluation")
+        print(f"• Status         : {status}")
+        print(f"• Reason         : {evaluation.get('reason', 'N/A')}")
 
         # ----------------------------
         # Failure Analysis
@@ -163,8 +213,9 @@ def main():
             evaluation
         )
 
-        print("\n🧠 Failure Analysis:")
-        print(json.dumps(failure, indent=2))
+        if evaluation["status"] == "fail":
+            print("\nRefinement Suggestion")
+            print(f"• {clean_text(failure.get('suggestion', 'No suggestion'))}")
 
         # ----------------------------
         # Update failure signal
@@ -194,10 +245,11 @@ def main():
         if current_accuracy > best_accuracy:
             best_accuracy = current_accuracy
             best_strategy = strategy
+            best_metrics = metrics
 
         # 1️⃣ Desired accuracy reached
         if current_accuracy >= target_accuracy:
-            print("\n🎯 Target accuracy reached. Stopping early.")
+            print("\nTarget accuracy reached. Stopping early.")
             break
 
         # 2️⃣ Improvement check
@@ -206,25 +258,84 @@ def main():
             improvement = current_accuracy - prev_acc
 
             if improvement < improvement_threshold:
-                print("\n📉 Improvement too small. Stopping early.")
+                print("\nImprovement below threshold — stopping early")
                 break
         
         prev_metrics = metrics
 
 
-    print("\n🏆 FINAL BEST STRATEGY:")
-    print(json.dumps(best_strategy, indent=2))
+    print("\n" + "━"*50)
+    print("🏆 FINAL RESULT")
+    print("━"*50)
 
-    print(f"\n🏆 FINAL BEST ACCURACY: {best_accuracy}")
+    # ----------------------------
+    # Strategy
+    # ----------------------------
+    print("\n🧠 Best Strategy")
+    print(f"• Model          : {best_strategy.get('model')}")
+    print(f"• Reason         : {best_strategy.get('reason', 'N/A')}")
+    print(f"• Preprocessing  : {', '.join(best_strategy.get('preprocessing', [])) or 'None'}")
+    print(f"• Confidence     : {best_strategy.get('confidence', 'N/A')}")
+
+    # ----------------------------
+    # Hyperparameters
+    # ----------------------------
+    if best_strategy.get("hyperparameters"):
+        print("\n⚙️ Hyperparameters")
+        for k, v in best_strategy["hyperparameters"].items():
+            print(f"• {k:<20}: {v}")
+
+    # ----------------------------
+    # Metrics
+    # ----------------------------
+    print("\n📈 Best Performance")
+    print(f"• Train Accuracy : {best_metrics.get('train_accuracy', 0):.4f}")
+    print(f"• Test Accuracy  : {best_metrics.get('test_accuracy', 0):.4f}")
+    print(f"• Precision      : {best_metrics.get('precision', 0):.4f}")
+    print(f"• Recall         : {best_metrics.get('recall', 0):.4f}")
+    print(f"• F1 Score       : {best_metrics.get('f1_score', 0):.4f}")
+
+    # ----------------------------
+    # Efficiency
+    # ----------------------------
+    print("\n⚡ Efficiency")
+    print(f"• Runtime        : {best_metrics.get('runtime', 0):.2f} sec")
+    print(f"• Memory         : {best_metrics.get('peak_memory_kb', 0):.2f} KB")
+
+    # ----------------------------
+    # Complexity
+    # ----------------------------
+    if best_metrics.get("pipeline_complexity"):
+        comp = best_metrics["pipeline_complexity"]
+        print("\n🧩 Pipeline Complexity")
+        print(f"• Steps          : {comp.get('num_steps')}")
+        print(f"• Hyperparameters: {comp.get('num_hyperparameters')}")
+
+    # ----------------------------
+    # Iterations
+    # ----------------------------
+    print(f"\n🔁 Total Iterations : {iteration}")
+
+    stopping_reason = "max_iterations"
+        
+    if best_accuracy >= target_accuracy:
+        stopping_reason = "target_accuracy"
+    elif prev_metrics:
+        prev_acc = prev_metrics.get("test_accuracy", 0)
+        if abs(best_accuracy - prev_acc) < improvement_threshold:
+            stopping_reason = "low_improvement"
 
     save_log(
-        dataset_name=dataset_name,  
+        dataset_name=dataset_name,
         profile=profile,
         insights=insights,
         iterations=iterations_log,
         final_result={
             "best_strategy": best_strategy,
-            "best_accuracy": best_accuracy
+            "best_metrics": best_metrics,   # 🔥 ADD THIS
+            "best_accuracy": best_accuracy,
+            "total_iterations": iteration,
+            "stopping_reason": stopping_reason
         }
     )
 
@@ -239,14 +350,17 @@ def main():
     result_row = {
         "dataset": dataset_name,
         "model": best_strategy.get("model"),
-        "train_accuracy": metrics.get("train_accuracy"),
-        "test_accuracy": best_accuracy,
-        "precision": metrics.get("precision"),
-        "recall": metrics.get("recall"),
-        "f1_score": metrics.get("f1_score"),
-        "runtime": metrics.get("runtime"),
-        "peak_memory_kb": metrics.get("peak_memory_kb"),
-        "pipeline_complexity": str(metrics.get("pipeline_complexity"))
+
+        "train_accuracy": best_metrics.get("train_accuracy"),
+        "test_accuracy": best_metrics.get("test_accuracy"),
+        "precision": best_metrics.get("precision"),
+        "recall": best_metrics.get("recall"),
+        "f1_score": best_metrics.get("f1_score"),
+
+        "runtime": best_metrics.get("runtime"),
+        "peak_memory_kb": best_metrics.get("peak_memory_kb"),
+
+        "pipeline_complexity": str(best_metrics.get("pipeline_complexity"))
     }
 
     df = pd.DataFrame([result_row])

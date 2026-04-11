@@ -22,6 +22,6 @@ def load_data(file_path, target_column, test_size=0.2, random_state=42):
         stratify=y if y.nunique() < 20 else None
     )
 
-    print("Data loaded and split")
+    print("\nData loaded and split")
 
     return X_train, X_test, y_train, y_test

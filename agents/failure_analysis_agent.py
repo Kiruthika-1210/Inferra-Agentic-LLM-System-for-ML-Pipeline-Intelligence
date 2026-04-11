@@ -56,7 +56,7 @@ def analyze_failure(profile, insights, strategy, metrics, evaluation):
 
     prompt = build_prompt(profile, insights, strategy, metrics, evaluation)
 
-    print("\n🧠 Analyzing failure...")
+    print("\nAnalyzing failure...")
 
     response = call_llm(prompt)
     response = clean_failure_analysis(response)

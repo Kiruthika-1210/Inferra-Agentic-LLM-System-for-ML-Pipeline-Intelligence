@@ -64,13 +64,13 @@ Ensure JSON is strictly valid.
 """
 
 
-def analyze_dataset(profile: dict) -> dict:
+def analyze_dataset(profile: dict, dataset_name) -> dict:
     """
     LLM-driven dataset analysis agent with caching
     """
 
     # Step 0: Check cache
-    cache_path = "results/insights.json"
+    cache_path = f"results/insights/{dataset_name}_insights.json"
     cached = load_json(cache_path)
 
     if cached:
@@ -94,10 +94,5 @@ def analyze_dataset(profile: dict) -> dict:
 
     # Step 4: Save result
     save_json(response, cache_path)
-
-    print("\nDataset analysis complete")
-
-    print("\nDataset Insights:")
-    print(json.dumps(response, indent=2))
 
     return response
