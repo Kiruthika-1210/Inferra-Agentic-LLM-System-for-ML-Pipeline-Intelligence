@@ -59,6 +59,6 @@ def preprocess_data(input_path, output_path, target_column):
     # Save cleaned dataset
     df.to_csv(output_path, index=False)
 
-    print(f"\nPreprocessing completed  →  Cleaned dataset stored in:  {output_path}")
+    print(f"\nPreprocessing completed  ->  Cleaned dataset stored in:  {output_path}")
 
     return target_column   

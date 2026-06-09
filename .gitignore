@@ -3,3 +3,6 @@ __pycache__/
 .env
 results/
 data/processed/
+*.mp4
+temp/
+experiments/logs/
