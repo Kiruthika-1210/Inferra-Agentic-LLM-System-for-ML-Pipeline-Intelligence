@@ -1,5 +1,11 @@
 # 🚀 LLM-Driven Agentic AutoML System
 
+## 🎥 Demo
+
+https://github.com/user-attachments/assets/00ebc30e-178f-4f67-8e4a-04105eab5ced
+
+---
+
 An end-to-end **Agentic AutoML framework** that uses Large Language Models (LLMs) to automatically design, evaluate, and refine machine learning pipelines through an **iterative feedback loop**.
 
 ---
