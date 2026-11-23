@@ -276,7 +276,7 @@ Includes:
 * Scikit-learn
 * Imbalanced-learn
 * Pandas / NumPy
-* LLM APIs (for reasoning agents)
+* Phi-3 Mini via Ollama
 
 ---
 
